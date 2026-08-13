@@ -100,6 +100,32 @@ function initHeights(){
   }
 }
 
+// ---- Sauvegarde locale (persiste dans ce navigateur, même après des semaines) ----
+const SAVE_KEY="telos-cube-editor-v1";
+function saveState(){
+  try{
+    const data={
+      heights:Array.from(H_MAP.entries()),   // [["i,j", n], ...]
+      jammers:Array.from(JAMMERS)            // ["i,j,k", ...]
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  }catch(e){/* stockage indisponible : on continue sans planter */}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return false;
+    const data=JSON.parse(raw);
+    if(!data||!Array.isArray(data.heights)) return false;
+    H_MAP=new Map(data.heights);
+    JAMMERS=new Set(Array.isArray(data.jammers)?data.jammers:[]);
+    return true;
+  }catch(e){ return false; }
+}
+function clearState(){
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+}
+
 // position écran du centre du losange du dessus d'un cube (i,j,k)
 // k = niveau dans la pile, 0 = sol.
 function project(i,j,k){
@@ -257,6 +283,7 @@ board.addEventListener("pointerdown",(evt)=>{
   if(jamMode){
     if(JAMMERS.has(cubeKey)){JAMMERS.delete(cubeKey);statusEl.textContent=`Brouilleur retiré (rangée ${i}, position ${j}, niveau ${k+1}).`;}
     else{JAMMERS.add(cubeKey);statusEl.textContent=`Brouilleur activé (rangée ${i}, position ${j}, niveau ${k+1}).`;}
+    saveState();
     draw();
     return;
   }
@@ -316,7 +343,7 @@ board.addEventListener("pointerup",(evt)=>{
     if(drag.jammer) JAMMERS.add(drag.fromKey+","+(back-1));
     statusEl.textContent="Déposé hors de la grille : cube remis en place.";
   }
-  drag.ghost.remove(); drag=null; draw();
+  drag.ghost.remove(); drag=null; saveState(); draw();
 });
 
 // ---- Cadrage & init ----
@@ -356,7 +383,7 @@ jamBtn.onclick=()=>{
   hoverKey=null; draw();
 };
 
-document.getElementById("reset").onclick=()=>{initHeights();JAMMERS.clear();center();draw();statusEl.textContent="Réinitialisé.";};
+document.getElementById("reset").onclick=()=>{initHeights();JAMMERS.clear();clearState();center();draw();statusEl.textContent="Réinitialisé.";};
 
 // ---- Export en image PNG ----
 document.getElementById("export").onclick=()=>{
@@ -445,7 +472,10 @@ document.getElementById("export").onclick=()=>{
 };
 window.addEventListener("resize",()=>{center();draw();});
 
-initHeights();
+// au démarrage : reprendre la dernière sauvegarde de ce navigateur, sinon pyramide de base
+if(!loadState()){
+  initHeights();
+}
 center();
 draw();
 </script>
